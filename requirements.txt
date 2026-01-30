@@ -1,0 +1,12 @@
+langchain
+langchain-core
+langchain-community
+langchain-text-splitters
+langchain-ollama
+pgvector==0.4.2
+psycopg2-binary
+pydantic
+langchain-postgres
+fastapi
+python-multipart
+pymupdf
