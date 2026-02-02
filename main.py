@@ -73,5 +73,5 @@ async def chat(
         {"question": query,
         "document_id":document_id},
         config={"configurable": {"session_id": session_id}},
-    )
+    )    
     return {"answer": response.content}
