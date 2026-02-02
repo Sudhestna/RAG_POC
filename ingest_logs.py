@@ -9,11 +9,11 @@ import os
 
 
 
-def ingestion(file):
+def ingestion():
     document_id = str(uuid.uuid4())
     texts=[]
     metadatas=[]
-    loader=PyMuPDFLoader(file)
+    loader=PyMuPDFLoader("workplace_policies_procedures_v1.pdf")
     documents=loader.load()
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = splitter.split_documents(documents)
@@ -36,3 +36,4 @@ def ingestion(file):
     return document_id
 
 
+print(ingestion())

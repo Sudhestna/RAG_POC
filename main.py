@@ -1,62 +1,77 @@
-from langchain.agents import create_agent
+from fastapi import FastAPI, Form
+from fastapi.middleware.cors import CORSMiddleware
+
 from langchain_ollama import ChatOllama
-# from langchain.prompts import ChatPromptTemplate
-from fastapi import *
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.runnables import RunnableLambda
+
+
 from retrieve import retrieve_logs
-from ingest_logs import ingestion
-import tempfile
+from memory import get_pg_chat_history
 
-llm = ChatOllama(model="llama3.1", temperature=0)
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+llm = ChatOllama(model="llama3.1", temperature=0.8)
+
+# ---------------- PROMPT (ACTUALLY USED) ----------------
+prompt = ChatPromptTemplate.from_messages([
+    (
+        "system",
+        "You are a helpful assistant.\n"
+        "Use the provided context if relevant.\n"
+        "Do not give irrelevant information even it is in context.\n"
+        "If the answer is not in the document or context is empty or history is also empty, you must say: 'Sorry, I do not have enough information to answer that.'\n\n"
+        "Context:\n{context}"
+    ),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{question}")
+])
+
+# ---------------- RAG LOGIC ----------------
+def rag_inputs(inputs: dict):
+    question = inputs["question"]
+    history=inputs.get("history")
+    document_id=inputs.get("document_id")
+
+    docs = retrieve_logs(question,document_id)
+    context = "\n\n".join(d.page_content for d in docs)
+
+    return {
+        "question": question,
+        "context": context,
+        "history":history
+    
+    }
+
+rag_chain= (rag_inputs|prompt | llm)
 
 
-# agent = create_agent(
-#     llm=llm,
-#     tools=[retrieve_logs],
-#     system_prompt="You are a log analyzer. You must use atleast one tool.Identify the issue and provide me the solution for the issue to be resolved."
-# )
+chain_with_memory = RunnableWithMessageHistory(
+    rag_chain,
+    get_pg_chat_history,
+    input_messages_key="question",
+    history_messages_key="history",
+)
 
-# response=agent.invoke({"messages":[{"role":"user","content":"Why does my application crash?"}]})
-# print(response["messages"][-1].content)
-
-
-app=FastAPI()
-
+# ---------------- API ----------------
 @app.post("/chat")
-async def main(query: str = Form(...),file: UploadFile | None = None):
-    document_id=None
-    if file:
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(await file.read())
-            tmp_path = tmp.name
-        
-        # content = (await file.read()).decode("utf-8")
-       
-        document_id=ingestion(tmp_path)
-        
-    response=retrieve_logs(query,document_id)
-    context = "\n\n".join(d.page_content for d in response)
-    
-    prompt=f"""
-            Answer the question strictly using the document below.
-            If the answer is not present, say so clearly.
-
-            Document:
-            {context}
-
-            Question:
-            {query}
-            """
-    result=llm.invoke(prompt).content
-    # result=llm.invoke({"messages":[{"role":"user","content":"What is a game give a brief description"}]})
-    return result
-        
-        
-        
-        
-    
-    
-
-
-
-
+async def chat(
+    query: str = Form(...),
+    document_id=Form(...),
+    session_id: str = Form(...)
+):
+    response = chain_with_memory.invoke(
+        {"question": query,
+        "document_id":document_id},
+        config={"configurable": {"session_id": session_id}},
+    )
+    return {"answer": response.content}

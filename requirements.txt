@@ -4,9 +4,10 @@ langchain-community
 langchain-text-splitters
 langchain-ollama
 pgvector==0.4.2
-psycopg2-binary
+psycopg
 pydantic
 langchain-postgres
 fastapi
 python-multipart
 pymupdf
+streamlit
