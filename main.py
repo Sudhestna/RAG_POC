@@ -1,14 +1,15 @@
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form,File,UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.runnables import RunnableLambda
-
-
+import os
+import tempfile
 from retrieve import retrieve_logs
 from memory import get_pg_chat_history
+from ingest_logs import ingestion
 
 app = FastAPI()
 
@@ -48,7 +49,7 @@ def rag_inputs(inputs: dict):
     return {
         "question": question,
         "context": context,
-        "history":history
+        "history":history,
     
     }
 
@@ -67,7 +68,8 @@ chain_with_memory = RunnableWithMessageHistory(
 async def chat(
     query: str = Form(...),
     document_id=Form(...),
-    session_id: str = Form(...)
+    session_id: str = Form(...),
+    
 ):
     response = chain_with_memory.invoke(
         {"question": query,
@@ -75,3 +77,15 @@ async def chat(
         config={"configurable": {"session_id": session_id}},
     )    
     return {"answer": response.content}
+
+
+@app.post("/upload")
+async def upload(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    document_id = ingestion(tmp_path)
+    os.remove(tmp_path)
+
+    return {"document_id": document_id}

@@ -5,122 +5,152 @@ from config import doc_map
 
 API_BASE = "http://localhost:8000"
 
-st.set_page_config(page_title="RAG Chat", layout="centered")
-st.markdown("""
-<style>
-.user-msg {
-    align-self: flex-end;
-    color: black;
-    padding: 10px 14px;
-    border-radius: 12px;
-    margin: 6px 0;
-    text-align: right;
-}
+st.set_page_config(page_title="Company Policy Assistant")
 
-.bot-msg {
-    align-self: flex-start;
-    background-color: #F1F0F0;
-    color: black;
-    padding: 10px 14px;
-    margin: 6px 0;
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
+# ---------- SESSION ----------
+if "view" not in st.session_state:
+    st.session_state.view = "main"
 
-
-# ---------------- Session setup ----------------
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
+    
 if "selected_doc_id" not in st.session_state:
     st.session_state.selected_doc_id = None
+    
+if "upload_session_id" not in st.session_state:
+    st.session_state.upload_session_id=str(uuid.uuid4())
 
+# ---------- HEADER ----------
+col1, col2 = st.columns([6, 1])
+with col1:
+    st.title("Company Policy Assistant")
+with col2:
+    if st.button("Upload PDF"):
+        st.session_state.view = "upload"
+        
+        st.rerun()
 
-# ---------------- HEADER (FIXED) ----------------
-st.title("Company Policy Assistant")
+# ================= MAIN CHAT =================
+if st.session_state.view == "main":
 
-doc_names = ["-- Select a document --"] + list(doc_map.keys())
+    doc_names = ["-- Select a document --"] + list(doc_map.keys())
+    selected = st.selectbox("Select a document", doc_names)
 
-selected_doc_name = st.selectbox(
-    "Select a document",
-    doc_names,
-    index=0
-)
+    if selected == "-- Select a document --":
+        st.info("Select a document")
+        st.stop()
 
-# Handle document selection
-if selected_doc_name == "-- Select a document --":
-    st.session_state.selected_doc_id = None
-    st.session_state.messages = []
-else:
-    new_doc_id = doc_map[selected_doc_name]
+    document_id = doc_map[selected]
+    if st.session_state.selected_doc_id != document_id:
+        st.session_state.selected_doc_id = document_id
+        st.session_state.messages = []
+        st.session_state.session_id = str(uuid.uuid4())
 
-    # Reset chat if document changed
-    if st.session_state.selected_doc_id != new_doc_id:
-        st.session_state.selected_doc_id = new_doc_id
-        # st.session_state.messages = []
-        # st.session_state.session_id = str(uuid.uuid4())
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
 
-st.divider()
+    user_input = st.chat_input("Ask about the document")
 
-# ---------------- CHAT AREA ----------------
-if st.session_state.selected_doc_id is None:
-    st.info("Select a document")
-    st.stop()
-
-# Display chat history
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        with st.chat_message("user"):
-            st.markdown(
-                f'<div class="user-msg">{msg["content"]}</div>',
-                unsafe_allow_html=True
-            )
-    else:
-        with st.chat_message("assistant"):
-            st.markdown(
-                f'<div class="bot-msg">{msg["content"]}</div>',
-                unsafe_allow_html=True
-            )
-
-user_input = st.chat_input("Ask something about the document")
-
-if user_input:
-    # User message
-    st.session_state.messages.append(
-        {"role": "user", "content": user_input}
-    )
-    with st.chat_message("user"):
-        st.markdown(
-            f'<div class="user-msg">{user_input}</div>',
-            unsafe_allow_html=True
+    if user_input:
+        st.session_state.messages.append(
+            {"role": "user", "content": user_input}
         )
 
-    # Assistant response
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                res = requests.post(
-                    f"{API_BASE}/chat",
-                    data={
-                        "query": user_input,
-                        "document_id": st.session_state.selected_doc_id,
-                        "session_id": st.session_state.session_id,
-                    },
-                )
-                answer = res.json().get("answer", "No answer returned")
-
-            except Exception as e:
-                answer = f"Error: {e}"
-
+        with st.chat_message("user"):
             st.markdown(
-            f'<div class="bot-msg">{answer}</div>',
-            unsafe_allow_html=True
-            )   
+                f'<div class="user-msg">{user_input}</div>',
+                unsafe_allow_html=True
+            )
 
-    st.session_state.messages.append(
-        {"role": "assistant", "content": answer}
-    )
+    # Assistant response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    res = requests.post(
+                        f"{API_BASE}/chat",
+                        data={
+                            "query": user_input,
+                            "document_id": st.session_state.selected_doc_id,
+                            "session_id": st.session_state.session_id,
+                        },
+                    )
+                    answer = res.json().get("answer", "No answer returned")
+
+                except Exception as e:
+                    answer = f"Error: {e}"
+
+                st.markdown(
+                f'<div class="bot-msg">{answer}</div>',
+                unsafe_allow_html=True
+                )   
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": answer}
+        )
+
+
+# ================= UPLOAD CHAT =================
+if st.session_state.view == "upload":
+
+    if st.button("<-Back"):
+        st.session_state.view = "main"
+        st.rerun()
+
+    uploaded = st.file_uploader("Upload PDF", type=["pdf"])
+
+    if uploaded:
+        if "upload_doc_id" not in st.session_state:
+            with st.spinner("Processing document..."):
+                res = requests.post(
+                    f"{API_BASE}/upload",
+                    files={"file": uploaded}
+                )
+                st.session_state.upload_doc_id = res.json()["document_id"]
+                st.session_state.upload_messages = []
+
+        for msg in st.session_state.upload_messages:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+
+        user_input = st.chat_input("Ask about uploaded document")
+
+        if user_input:
+            st.session_state.upload_messages.append(
+                {"role": "user", "content": user_input}
+            )
+
+            with st.chat_message("user"):
+                st.markdown(
+                f'<div class="user-msg">{user_input}</div>',
+                unsafe_allow_html=True
+            )
+
+    # Assistant response
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    try:
+                        res = requests.post(
+                            f"{API_BASE}/chat",
+                            data={
+                                "query": user_input,
+                                "document_id": st.session_state.upload_doc_id,
+                                "session_id": st.session_state.upload_session_id,
+                            },
+                        )
+                        answer = res.json().get("answer", "No answer returned")
+
+                    except Exception as e:
+                        answer = f"Error: {e}"
+
+                    st.markdown(
+                    f'<div class="bot-msg">{answer}</div>',
+                    unsafe_allow_html=True
+                    )   
+
+            st.session_state.upload_messages.append(
+                {"role": "assistant", "content": answer}
+            )
