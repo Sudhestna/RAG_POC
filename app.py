@@ -33,6 +33,29 @@ with col2:
         
         st.rerun()
 
+# ---------------- Sidebar ----------------
+st.sidebar.title("Chats")
+
+sessions_res = requests.get(f"{API_BASE}/sessions")
+sessions = sessions_res.json().get("sessions")
+
+
+if st.sidebar.button("New Chat"):
+    st.session_state.session_id = str(uuid.uuid4())
+    st.session_state.messages = []
+
+st.sidebar.divider()
+
+
+for sess_id in sessions:
+    label = sess_id[:8] 
+    if st.sidebar.button(label, key=sess_id):
+        st.session_state.session_id = sess_id
+
+        
+        res = requests.get(f"{API_BASE}/sessions/{sess_id}")
+        st.session_state.messages = res.json().get("messages")
+
 # ================= MAIN CHAT =================
 if st.session_state.view == "main":
 

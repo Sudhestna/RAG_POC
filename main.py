@@ -10,6 +10,8 @@ import tempfile
 from retrieve import retrieve_logs
 from memory import get_pg_chat_history
 from ingest_logs import ingestion
+from sessions import get_all_sessions
+from history import get_messages_for_session
 
 app = FastAPI()
 
@@ -89,3 +91,14 @@ async def upload(file: UploadFile = File(...)):
     os.remove(tmp_path)
 
     return {"document_id": document_id}
+
+@app.get("/sessions")
+def list_sessions():
+    return {"sessions": get_all_sessions()}
+
+
+@app.get("/sessions/{session_id}")
+def get_session_messages(session_id: str):
+    return {
+        "messages": get_messages_for_session(session_id)
+    }
