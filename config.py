@@ -13,7 +13,6 @@ COLLECTION_NAME = ""
 
 doc_map={"Security Policy":"25e40365-ab3b-4014-9327-031c204c2410",
 "HR Policy":"c2e4d34c-0ccf-4777-8401-34cb5db4fd1e",
-"Legal Policy":"7f1c4df9-0f08-44ae-9bde-48b6a32a9cdd",
 "Operational Policy":"1a02be65-cc3d-4b4a-a6e7-a36c6769bb1d",
 "WorkPlace Policy":"f0f6953b-e5fa-452c-8468-a8a05831dc86"}
         

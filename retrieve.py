@@ -15,7 +15,7 @@ def retrieve_logs(query: str,document_id: str | None = None):
     )
 
 
-    search_kwargs = {"k":5}
+    search_kwargs = {"k":6}
 
     if document_id.strip():
         search_kwargs["filter"] = {
@@ -26,7 +26,7 @@ def retrieve_logs(query: str,document_id: str | None = None):
     # response = retriever.invoke(query)
     response = vector_store.similarity_search_with_score(query,**search_kwargs)
     
-    threshold = 0.35# Set your desired threshold for similarity score
+    threshold = 0.4# Set your desired threshold for similarity score
     filtered_docs = [
         doc for doc, score in response if score <= threshold
     ]

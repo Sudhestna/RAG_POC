@@ -7,12 +7,21 @@ API_BASE = "http://localhost:8000"
 
 st.set_page_config(page_title="Company Policy Assistant")
 
+sessions_res = requests.get(f"{API_BASE}/sessions")
+sessions = sessions_res.json().get("sessions")
+
+session = sessions["sessions"]
+labels = sessions["labels"]
+
+
 # ---------- SESSION ----------
 if "view" not in st.session_state:
     st.session_state.view = "main"
 
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+    session.insert(0, st.session_state.session_id)
+    labels.insert(0, "New Session")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -36,26 +45,25 @@ with col2:
 # ---------------- Sidebar ----------------
 st.sidebar.title("Chats")
 
-sessions_res = requests.get(f"{API_BASE}/sessions")
-sessions = sessions_res.json().get("sessions")
 
 
 if st.sidebar.button("New Chat"):
     st.session_state.session_id = str(uuid.uuid4())
+    session.insert(0, st.session_state.session_id)
+    labels.insert(0, "New Session")
     st.session_state.messages = []
 
 st.sidebar.divider()
 
 
-for sess_id in sessions:
-    label = sess_id[:8] 
+for i in range(len(session)):
+    sess_id = session[i]
+    label =labels[i]
     if st.sidebar.button(label, key=sess_id):
         st.session_state.session_id = sess_id
-
-        
         res = requests.get(f"{API_BASE}/sessions/{sess_id}")
         st.session_state.messages = res.json().get("messages")
-
+        
 # ================= MAIN CHAT =================
 if st.session_state.view == "main":
 
@@ -65,13 +73,13 @@ if st.session_state.view == "main":
     if selected == "-- Select a document --":
         st.info("Select a document")
         st.stop()
-
+        
     document_id = doc_map[selected]
     if st.session_state.selected_doc_id != document_id:
         st.session_state.selected_doc_id = document_id
         st.session_state.messages = []
         st.session_state.session_id = str(uuid.uuid4())
-
+        
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
@@ -173,6 +181,7 @@ if st.session_state.view == "upload":
                     f'<div class="bot-msg">{answer}</div>',
                     unsafe_allow_html=True
                     )   
+                    
 
             st.session_state.upload_messages.append(
                 {"role": "assistant", "content": answer}
