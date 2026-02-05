@@ -25,7 +25,7 @@ app.add_middleware(
 
 llm = ChatOllama(model="llama3.2", temperature=0.8)
 
-# ---------------- PROMPT (ACTUALLY USED) ----------------
+# ---------------- PROMPT ----------------
 prompt = ChatPromptTemplate.from_messages([
     (
         "system",

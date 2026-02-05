@@ -64,7 +64,7 @@ for i in range(len(session)):
         res = requests.get(f"{API_BASE}/sessions/{sess_id}")
         st.session_state.messages = res.json().get("messages")
         
-# ================= MAIN CHAT =================
+# ---------------- MAIN CHAT ----------------
 if st.session_state.view == "main":
 
     doc_names = ["-- Select a document --"] + list(doc_map.keys())
